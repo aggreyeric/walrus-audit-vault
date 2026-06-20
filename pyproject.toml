@@ -1,0 +1,16 @@
+[project]
+name = "walrus-audit-vault"
+version = "0.1.0"
+description = "Verifiable decentralized audit logs on Walrus + Sui"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends._legacy:_Backend"
