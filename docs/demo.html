@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Walrus Audit Vault — Tamper-Evident Decentralized Audit Logs</title>
+<meta name="description" content="Decentralized, tamper-evident audit log system built on Walrus + Sui for Sui Overflow 2026." />
+<style>
+  /* ───────────────────────────────────────────────
+     Walrus Audit Vault — demo page styles (inline)
+     ─────────────────────────────────────────────── */
+  :root {
+    --bg:        #0f172a;
+    --bg-2:      #111c34;
+    --card:      #16223f;
+    --card-2:    #1b294b;
+    --border:    #283660;
+    --text:      #f1f5f9;
+    --muted:     #94a3b8;
+    --accent:    #38bdf8;   /* Sui cyan */
+    --accent-2:  #2dd4bf;   /* Walrus teal */
+    --warn:      #fbbf24;
+    --ok:        #34d399;
+    --bad:       #f87171;
+    --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  a { color: var(--accent); text-decoration: none; transition: color .15s ease; }
+  a:hover { color: #7dd3fc; }
+
+  /* ── ambient background glow ── */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(60rem 60rem at 80% -10%, rgba(56, 189, 248, 0.10), transparent 60%),
+      radial-gradient(50rem 50rem at 0% 100%, rgba(45, 212, 191, 0.08), transparent 60%);
+    pointer-events: none;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+  }
+
+  /* ── top bar ── */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+    background: rgba(15, 23, 42, 0.7);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+  }
+  .brand { display: flex; align-items: center; gap: .55rem; font-weight: 700; }
+  .brand .seal {
+    font-size: 1.3rem;
+    filter: drop-shadow(0 0 6px rgba(45,212,191,0.5));
+  }
+  .nav { display: flex; gap: 1.25rem; }
+  .nav a { color: var(--muted); font-size: .92rem; font-weight: 500; }
+  .nav a:hover { color: var(--text); }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .55rem 1rem;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-weight: 600;
+    font-size: .9rem;
+    cursor: pointer;
+    transition: transform .12s ease, border-color .15s ease, background .15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); border-color: var(--accent); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #06121c;
+    border-color: transparent;
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+
+  /* ── hero ── */
+  .hero { padding: 5rem 0 3rem; text-align: center; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .35rem .8rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(45, 212, 191, 0.08);
+    color: var(--accent-2);
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+    margin-bottom: 1.5rem;
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); }
+
+  h1.hero-title {
+    font-size: clamp(2.1rem, 6vw, 3.6rem);
+    line-height: 1.08;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.1rem;
+  }
+  .hero-title .grad {
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero-sub {
+    font-size: clamp(1.02rem, 2.4vw, 1.25rem);
+    color: var(--muted);
+    max-width: 680px;
+    margin: 0 auto 2.25rem;
+  }
+  .hero-cta { display: flex; gap: .85rem; justify-content: center; flex-wrap: wrap; }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin: 3.5rem auto 0;
+    max-width: 760px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.1rem .75rem;
+    text-align: center;
+  }
+  .stat .num { font-size: 1.5rem; font-weight: 800; }
+  .stat .num.ok { color: var(--ok); }
+  .stat .lbl { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: .25rem; }
+
+  /* ── sections ── */
+  section { padding: 3.5rem 0; }
+  .section-head { text-align: center; margin-bottom: 2.5rem; }
+  .eyebrow {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: .8rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-bottom: .6rem;
+  }
+  h2 {
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .section-sub { color: var(--muted); margin-top: .6rem; max-width: 620px; margin-left: auto; margin-right: auto; }
+
+  /* ── architecture diagram ── */
+  .arch {
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 2.25rem 1.25rem;
+    overflow-x: auto;
+  }
+  .flow {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: .6rem;
+    min-width: 720px;
+  }
+  .node {
+    flex: 1 1 0;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.1rem .85rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: .5rem;
+    position: relative;
+  }
+  .node .ico { font-size: 1.7rem; line-height: 1; }
+  .node .name { font-weight: 700; font-size: .95rem; }
+  .node .desc { font-size: .76rem; color: var(--muted); line-height: 1.35; }
+  .node.input  { border-top: 3px solid var(--warn); }
+  .node.hash   { border-top: 3px solid #a78bfa; }
+  .node.store  { border-top: 3px solid var(--accent-2); }
+  .node.anchor { border-top: 3px solid var(--accent); }
+  .node.verify { border-top: 3px solid var(--ok); }
+
+  .arrow {
+    align-self: center;
+    color: var(--border);
+    font-size: 1.4rem;
+    font-weight: 700;
+    user-select: none;
+  }
+
+  /* grouped storage + anchor */
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    flex: 1.3 1 0;
+  }
+  .group-label {
+    text-align: center;
+    font-size: .7rem;
+    color: var(--muted);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .group .node { flex: 1; }
+
+  /* code line inside node */
+  .node code {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--accent-2);
+    background: rgba(45,212,191,0.08);
+    padding: .15rem .4rem;
+    border-radius: 4px;
+    word-break: break-all;
+  }
+
+  /* ── verify callout ── */
+  .verify-callout {
+    margin-top: 1.75rem;
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    background: rgba(52, 211, 153, 0.06);
+    border: 1px solid rgba(52, 211, 153, 0.3);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+  }
+  .verify-callout .check { font-size: 1.5rem; }
+  .verify-callout .txt { font-size: .92rem; }
+  .verify-callout .txt strong { color: var(--ok); }
+
+  /* ── code block ── */
+  .code {
+    background: #0b1426;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem 1.4rem;
+    font-family: var(--mono);
+    font-size: .86rem;
+    overflow-x: auto;
+    line-height: 1.65;
+    color: #e2e8f0;
+  }
+  .code .c { color: var(--muted); }
+  .code .k { color: #c084fc; }
+  .code .s { color: var(--accent-2); }
+  .code .p { color: var(--accent); }
+  .code .ok{ color: var(--ok); }
+  .prompt { color: var(--accent-2); }
+
+  /* ── test results ── */
+  .test-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+  .test-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .test-bar {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .9rem 1.25rem;
+    background: rgba(52, 211, 153, 0.08);
+    border-bottom: 1px solid var(--border);
+  }
+  .test-bar .pip {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--ok); box-shadow: 0 0 10px var(--ok);
+  }
+  .test-bar .t { font-weight: 700; }
+  .test-bar .r { margin-left: auto; color: var(--ok); font-family: var(--mono); font-size: .85rem; font-weight: 700; }
+
+  .files { display: flex; gap: 1.25rem; padding: 1.1rem 1.25rem; flex-wrap: wrap; }
+  .file-stat { flex: 1 1 160px; min-width: 150px; }
+  .file-stat .fn { font-family: var(--mono); font-size: .82rem; color: var(--accent); }
+  .file-stat .bar { height: 8px; background: var(--bg-2); border-radius: 6px; margin: .5rem 0 .35rem; overflow: hidden; }
+  .file-stat .fill { height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--ok)); }
+  .file-stat .meta { font-size: .78rem; color: var(--muted); }
+
+  /* ── tech stack ── */
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+  .tech {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .tech:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .tech .ti { font-size: 1.6rem; }
+  .tech .tn { font-weight: 700; margin: .5rem 0 .25rem; }
+  .tech .td { font-size: .82rem; color: var(--muted); }
+
+  /* ── use cases ── */
+  .cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+  .case {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-2);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+  }
+  .case .ci { font-size: 1.4rem; }
+  .case .ct { font-weight: 700; margin: .4rem 0 .25rem; }
+  .case .cd { font-size: .84rem; color: var(--muted); }
+
+  /* ── why table ── */
+  .why-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .why-table th, .why-table td {
+    padding: .85rem 1.1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .why-table th {
+    background: var(--bg-2);
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+  }
+  .why-table tr:last-child td { border-bottom: none; }
+  .why-table .layer { color: var(--accent); font-weight: 700; }
+
+  /* ── prize band ── */
+  .prize {
+    background: linear-gradient(135deg, rgba(56,189,248,0.10), rgba(45,212,191,0.10));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+  }
+  .prize .amt {
+    font-size: clamp(2.4rem, 7vw, 4rem);
+    font-weight: 800;
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    line-height: 1;
+  }
+  .prize .lbl { color: var(--muted); margin-top: .5rem; font-size: 1rem; }
+  .prize .track { margin-top: 1rem; color: var(--text); font-weight: 600; }
+
+  /* ── footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2.5rem 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: .88rem;
+  }
+  footer .brand { justify-content: center; margin-bottom: .75rem; color: var(--text); }
+  footer a { font-weight: 600; }
+
+  /* ── responsive ── */
+  @media (max-width: 720px) {
+    .nav { display: none; }
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+    .flow { flex-direction: column; min-width: 0; }
+    .arrow { transform: rotate(90deg); padding: .1rem 0; }
+    .group { flex-direction: column; }
+  }
+  @media (max-width: 480px) {
+    .hero { padding-top: 3.5rem; }
+    .hero-cta .btn { width: 100%; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─────────────────── TOP BAR ─────────────────── -->
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand">
+      <span class="seal">🦭</span>
+      <span>Walrus&nbsp;Audit&nbsp;Vault</span>
+    </div>
+    <nav class="nav">
+      <a href="#architecture">Architecture</a>
+      <a href="#tests">Tests</a>
+      <a href="#stack">Stack</a>
+      <a href="#use-cases">Use&nbsp;Cases</a>
+    </nav>
+    <a class="btn btn-primary" href="https://github.com/aggreyeric/walrus-audit-vault" target="_blank" rel="noopener">
+      ⭐ View on GitHub
+    </a>
+  </div>
+</div>
+
+<!-- ─────────────────── HERO ─────────────────── -->
+<header class="hero">
+  <div class="wrap">
+    <span class="badge"><span class="dot"></span> Built for Sui Overflow 2026 — Walrus Track</span>
+    <h1 class="hero-title">
+      Walrus Audit Vault —<br />
+      <span class="grad">Tamper-Evident Decentralized Audit Logs</span>
+    </h1>
+    <p class="hero-sub">
+      Every transaction, policy decision, and agent action is hashed, signed, and
+      stored immutably on <strong>Walrus</strong> — with a content-addressed index
+      anchored on <strong>Sui</strong>. Anyone can verify nothing was altered.
+    </p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="https://github.com/aggreyeric/walrus-audit-vault" target="_blank" rel="noopener">
+        🐙 GitHub Repo
+      </a>
+      <a class="btn" href="#architecture">See the architecture ↓</a>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat"><div class="num ok">17</div><div class="lbl">Tests passing</div></div>
+      <div class="stat"><div class="num">2</div><div class="lbl">Chains · Walrus + Sui</div></div>
+      <div class="stat"><div class="num">SHA-256</div><div class="lbl">Content anchoring</div></div>
+      <div class="stat"><div class="num">$500K</div><div class="lbl">Prize pool</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ─────────────────── ARCHITECTURE ─────────────────── -->
+<section id="architecture">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">How it works</div>
+      <h2>Architecture</h2>
+      <p class="section-sub">
+        From an autonomous agent's decision to a cryptographically verifiable
+        record — here is the full data flow.
+      </p>
+    </div>
+
+    <div class="arch">
+      <div class="flow">
+        <div class="node input">
+          <div class="ico">🤖</div>
+          <div class="name">Agent Action</div>
+          <div class="desc">e.g. PayBridge payment, policy decision, transfer.</div>
+        </div>
+
+        <div class="arrow">→</div>
+
+        <div class="node hash">
+          <div class="ico">🔐</div>
+          <div class="name">SHA-256 Hash + Sign</div>
+          <div class="desc">Canonical record → deterministic digest.</div>
+          <code>content_hash = sha256(record)</code>
+        </div>
+
+        <div class="arrow">→</div>
+
+        <!-- grouped storage + anchor -->
+        <div class="group">
+          <div class="group-label">Immutable storage + verification</div>
+          <div class="node store">
+            <div class="ico">🦭</div>
+            <div class="name">Walrus Storage</div>
+            <div class="desc">Decentralized, replicated blob storage for the full log.</div>
+            <code>blob_id = PUT publisher/blob</code>
+          </div>
+          <div class="node anchor">
+            <div class="ico">⛓️</div>
+            <div class="name">Sui Anchor</div>
+            <div class="desc">On-chain registry: content_hash → blob_id.</div>
+            <code>SuiRegistry { blob_id, hash }</code>
+          </div>
+        </div>
+
+        <div class="arrow">→</div>
+
+        <div class="node verify">
+          <div class="ico">✅</div>
+          <div class="name">Verify</div>
+          <div class="desc">Anyone re-fetches the blob &amp; compares the hash.</div>
+        </div>
+      </div>
+
+      <div class="verify-callout">
+        <div class="check">🔍</div>
+        <div class="txt">
+          <strong>Verification:</strong>
+          fetch(blob_id) → sha256(record) → compare to on-chain hash.
+          If they match, the log is provably untampered — no trusted third party required.
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin: 2.5rem 0 1rem; text-align:center;">Why Walrus + Sui?</h3>
+    <table class="why-table">
+      <thead>
+        <tr><th>Layer</th><th>Tech</th><th>Role</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="layer">Audit data</td>
+          <td><strong>Walrus</strong></td>
+          <td>Large, cheap, decentralized blob storage for full audit records.</td>
+        </tr>
+        <tr>
+          <td class="layer">Verification anchor</td>
+          <td><strong>Sui</strong></td>
+          <td>On-chain content-hash registry — the cryptographic anchor.</td>
+        </tr>
+        <tr>
+          <td class="layer">Agent</td>
+          <td><strong>Python</strong></td>
+          <td>Generates, signs, and stores tamper-evident audit records.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────────────────── CLI DEMO ─────────────────── -->
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Quick start</div>
+      <h2>Store &amp; verify in one command</h2>
+    </div>
+    <div class="code">
+<span class="c"># Python 3.11+</span>
+<span class="prompt">$</span> pip install httpx pydantic<br />
+<span class="prompt">$</span> <span class="k">export</span> SUI_ADDRESS=<span class="s">0x6dca...your...address</span><br /><br />
+<span class="c"># Store an audit log</span>
+<span class="prompt">$</span> python -m walrus_audit_vault.cli store \<br />
+&nbsp;&nbsp;&nbsp;&nbsp;--actor <span class="s">"0xpaybridge_agent"</span> \<br />
+&nbsp;&nbsp;&nbsp;&nbsp;--action <span class="s">"transfer_sui"</span> \<br />
+&nbsp;&nbsp;&nbsp;&nbsp;--decision <span class="s">"ALLOWED"</span> \<br />
+&nbsp;&nbsp;&nbsp;&nbsp;--amount 5000000000<br /><br />
+<span class="ok">✓ stored · blob_id = oXy...z9k · content_hash = 4f2c...e1a0</span><br /><br />
+<span class="c"># Verify an audit log</span>
+<span class="prompt">$</span> python -m walrus_audit_vault.cli verify --blob-id <span class="s">&lt;blob_id&gt;</span><br />
+<span class="ok">✓ verified · on-chain hash matches</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────── TEST RESULTS ─────────────────── -->
+<section id="tests">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Quality</div>
+      <h2>Test Results</h2>
+      <p class="section-sub">Live <code>pytest</code> output — deterministic, network-free unit tests for the audit model and Walrus response parsing.</p>
+    </div>
+
+    <div class="test-grid">
+      <div class="test-card">
+        <div class="test-bar">
+          <span class="pip"></span>
+          <span class="t">pytest tests/ -v</span>
+          <span class="r">17 passed in 0.12s ✓</span>
+        </div>
+        <div class="files">
+          <div class="file-stat">
+            <div class="fn">tests/test_audit.py</div>
+            <div class="bar"><div class="fill" style="width: 100%"></div></div>
+            <div class="meta">12 passed · hashing &amp; serialization</div>
+          </div>
+          <div class="file-stat">
+            <div class="fn">tests/test_store.py</div>
+            <div class="bar"><div class="fill" style="width: 100%"></div></div>
+            <div class="meta">5 passed · blob-id extraction</div>
+          </div>
+        </div>
+        <div class="code" style="margin: 0; border-radius: 0; border: none; border-top: 1px solid var(--border);">
+<span class="c">============================= test session starts =============================</span><br />
+platform darwin -- Python 3.14.3, pytest-9.1.1, pluggy-1.6.0<br />
+rootdir: /private/tmp/walrus-audit-vault<br />
+configfile: pyproject.toml<br />
+plugins: anyio-4.14.0<br />
+collected <span class="p">17</span> items<br /><br />
+tests/test_audit.py <span class="ok">............</span>                                  [ 70%]<br />
+tests/test_store.py  <span class="ok">.....</span>                                            [100%]<br /><br />
+<span class="ok">============================== 17 passed in 0.12s ==============================</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────── TECH STACK ─────────────────── -->
+<section id="stack">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Built with</div>
+      <h2>Tech Stack</h2>
+    </div>
+    <div class="stack-grid">
+      <div class="tech">
+        <div class="ti">🐍</div>
+        <div class="tn">Python 3.11+</div>
+        <div class="td">Core runtime, type-safe data models, async-ready HTTP.</div>
+      </div>
+      <div class="tech">
+        <div class="ti">🔗</div>
+        <div class="tn">httpx</div>
+        <div class="td">HTTP client for the Walrus publisher / aggregator API.</div>
+      </div>
+      <div class="tech">
+        <div class="ti">🧬</div>
+        <div class="tn">pydantic</div>
+        <div class="td">Validated, canonical audit-record data models.</div>
+      </div>
+      <div class="tech">
+        <div class="ti">🦭</div>
+        <div class="tn">Walrus</div>
+        <div class="td">Decentralized, replicated blob storage for full audit logs.</div>
+      </div>
+      <div class="tech">
+        <div class="ti">⛓️</div>
+        <div class="tn">Sui</div>
+        <div class="td">On-chain content-hash registry &amp; verification anchor.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────── USE CASES ─────────────────── -->
+<section id="use-cases">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">In the wild</div>
+      <h2>Use Cases</h2>
+    </div>
+    <div class="cases">
+      <div class="case">
+        <div class="ci">🤖</div>
+        <div class="ct">AI Agent Action Logs</div>
+        <div class="cd">Prove what an autonomous agent did — and why.</div>
+      </div>
+      <div class="case">
+        <div class="ci">💸</div>
+        <div class="ct">Payment Audit Trails</div>
+        <div class="cd">Full policy-decision context, not just tx receipts.</div>
+      </div>
+      <div class="case">
+        <div class="ci">📋</div>
+        <div class="ct">Compliance Records</div>
+        <div class="cd">Immutable logs for regulated DeFi protocols.</div>
+      </div>
+      <div class="case">
+        <div class="ci">🔍</div>
+        <div class="ct">Agent Transparency</div>
+        <div class="cd">Verifiable "chain of thought" for autonomous systems.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────── PRIZE BAND ─────────────────── -->
+<section>
+  <div class="wrap">
+    <div class="prize">
+      <div class="eyebrow">Hackathon submission</div>
+      <div class="amt">$500,000</div>
+      <div class="lbl">Sui Overflow 2026 — total prize pool</div>
+      <div class="track">🎯 Walrus Track · decentralized storage for verifiable data</div>
+      <div style="margin-top: 1.75rem;">
+        <a class="btn btn-primary" href="https://overflow.sui.io" target="_blank" rel="noopener">Sui Overflow 2026 →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────── FOOTER ─────────────────── -->
+<footer>
+  <div class="wrap">
+    <div class="brand">
+      <span class="seal">🦭</span>
+      <span>Walrus Audit Vault</span>
+    </div>
+    <p>
+      Tamper-evident decentralized audit logs · MIT License ·
+      <a href="https://github.com/aggreyeric/walrus-audit-vault" target="_blank" rel="noopener">github.com/aggreyeric/walrus-audit-vault</a>
+    </p>
+    <p style="margin-top:.5rem;">Built for <a href="https://overflow.sui.io" target="_blank" rel="noopener">Sui Overflow 2026</a> — Walrus Track.</p>
+  </div>
+</footer>
+
+</body>
+</html>
